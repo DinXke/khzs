@@ -1,54 +1,153 @@
-# KHZS Deployment Guide
+# KHZS & KHZS.BE Deployment Guide
 
 ## Overview
-RBAC blog application met Next.js 16, Node.js, SQLite database en Nginx reverse proxy.
+Volledige deployment van twee applicaties:
+1. **KHZS** - RBAC blog met Next.js 16, Node.js, SQLite en Nginx reverse proxy
+2. **KHZS.BE** - WordPress clone met MySQL, Nginx en PhpMyAdmin
 
 ## System Requirements
-- Node.js 20+
-- Docker & Docker Compose (of equivalent)
-- SSL certificates (voor HTTPS op port 443)
-- 512MB RAM minimum
-- Network access op poort 443
+
+### LXC Container Specification (Proxmox)
+- **OS**: Ubuntu 24.04 LTS (Noble Numbat) - Recommended
+- **CPU**: 2+ cores
+- **RAM**: 2GB minimum (4GB recommended voor beide apps)
+- **Storage**: 20GB+ (WordPress upload space)
+- **Network**: Configured NIC with internet access
+
+### Software Requirements
+- Docker & Docker Compose (latest)
+- Node.js 20+ (voor KHZS)
+- MySQL 8.0 (in Docker, voor KHZS.BE)
+- PHP 8.2+ (in Docker, voor WordPress)
+- SSL certificates (HTTPS op port 443)
+
+## Architectuur
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Proxmox LXC Container                      │
+│                    Ubuntu 24.04 LTS                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │           Nginx Reverse Proxy (port 443)             │   │
+│  │         SSL/TLS termination + routing                │   │
+│  └──────────────────────────────────────────────────────┘   │
+│           │                               │                 │
+│           ▼                               ▼                 │
+│  ┌─────────────────────┐     ┌──────────────────────┐      │
+│  │   KHZS (Node.js)    │     │  KHZS.BE (WordPress) │      │
+│  │   port 3000         │     │  port 8000/MySQL     │      │
+│  ├─────────────────────┤     ├──────────────────────┤      │
+│  │ - RBAC Blog CMS     │     │ - WordPress CMS      │      │
+│  │ - SQLite DB         │     │ - MySQL 8.0 DB       │      │
+│  │ - Login System      │     │ - PhpMyAdmin         │      │
+│  │ - Admin Panel       │     │ - Theme/Plugins      │      │
+│  └─────────────────────┘     └──────────────────────┘      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Pre-Deployment Checklist
 
-### 1. SSL Certificates
-Plaats SSL certificaten in `ssl/` directory:
+### 1. Container Setup (Ubuntu 24.04 LTS)
+Bij Proxmox LXC container aanmaken:
+- [ ] Base image: Ubuntu 24.04 LTS
+- [ ] vCPU: 2 cores
+- [ ] Memory: 4GB (2GB minimum)
+- [ ] Disk: 20GB+
+- [ ] Network: Configured static IP
+
+### 2. SSL Certificates
+Plaats SSL certificaten in `ssl/` directory (beide projects):
 ```bash
+# KHZS project
 mkdir -p ssl
-# Place your SSL certificates:
-# - ssl/cert.pem (public certificate)
-# - ssl/key.pem (private key)
+cp /path/to/cert.pem ssl/cert.pem
+cp /path/to/key.pem ssl/key.pem
+
+# KHZS.BE project
+mkdir -p ../_default/ssl
+cp /path/to/cert.pem ../_default/ssl/cert.pem
+cp /path/to/key.pem ../_default/ssl/key.pem
 ```
 
-### 2. Network Configuration
+### 3. Network Configuration
 In Proxmox LXC container:
-- Assign appropriate network interface (check available NICs)
-- Configure static IP if needed
-- Ensure port 443 is accessible (check firewall rules)
+- [ ] Assign appropriate network interface (check available NICs)
+- [ ] Configure static IP if needed
+- [ ] Ensure port 443 is accessible (check firewall rules)
+- [ ] Enable port forwarding if needed
 
 ## Deployment Steps
 
-### Via Docker Compose
+### Complete Deployment (Both Projects)
 
 ```bash
-# 1. Clone/sync the repository
-git clone <repo-url> khzs
-cd khzs
+# 1. Setup directory structure
+mkdir -p /opt/khzs-apps
+cd /opt/khzs-apps
 
-# 2. Build the Docker image
-docker build -t khzs:latest .
+# 2. Clone both projects
+git clone <repo-url>/khzs khzs
+git clone <repo-url>/khzs-be khzs-be  # (or copy _default folder)
 
 # 3. Prepare SSL certificates
+mkdir -p khzs/ssl
+mkdir -p khzs-be/ssl
+# Copy cert.pem and key.pem to both ssl/ directories
+
+# 4. Start KHZS (RBAC Blog)
+cd khzs
+docker build -t khzs:latest .
+docker-compose up -d
+
+# 5. Start KHZS.BE (WordPress)
+cd ../khzs-be
+bash install.sh  # or docker-compose up -d
+
+# 6. Verify both services
+curl -k https://localhost/login          # KHZS
+curl -k https://localhost/wp-admin/      # KHZS.BE WordPress
+curl -k https://localhost:8081/          # PhpMyAdmin (optional)
+```
+
+### Individual Deployments
+
+#### KHZS (RBAC Blog System)
+
+```bash
+cd khzs
+
+# Build Docker image
+docker build -t khzs:latest .
+
+# Prepare SSL certificates
 mkdir -p ssl
 # Copy cert.pem and key.pem to ssl/
 
-# 4. Start services
+# Start services
 docker-compose up -d
 
-# 5. Verify deployment
+# Verify deployment
 docker-compose logs -f khzs
 curl -k https://localhost/login  # Should return login page
+```
+
+#### KHZS.BE (WordPress Clone)
+
+```bash
+cd khzs-be
+
+# Run installation script (handles everything)
+bash install.sh
+
+# OR manually:
+docker-compose up -d
+
+# Verify deployment
+curl -k https://localhost/  # Should return WordPress home
+curl -k https://localhost:8081/  # PhpMyAdmin
 ```
 
 ### Manual Deployment (Linux)
@@ -129,15 +228,67 @@ npm run seed
 - `/nieuws` - Public (blog list)
 - `/nieuws/[slug]` - Public (blog detail)
 
+## Directory Structure in LXC Container
+
+```
+/opt/khzs-apps/
+├── khzs/                          # RBAC Blog System
+│   ├── docker-compose.yml
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── ssl/
+│   │   ├── cert.pem
+│   │   └── key.pem
+│   ├── data/                      # SQLite database
+│   ├── public/uploads/
+│   └── src/
+│
+└── khzs-be/                       # WordPress Clone
+    ├── docker-compose.yml
+    ├── nginx.conf
+    ├── ssl/
+    │   ├── cert.pem
+    │   └── key.pem
+    ├── app/                       # WordPress files
+    ├── mysql-data/                # MySQL persistent data
+    └── install.sh
+```
+
 ## Health Check
+
+### KHZS Health Checks
 ```bash
-# Test if app is running
+# Test login page
 curl -k https://your-domain/login
 
 # Check API health
 curl -k https://your-domain/api/auth/login -X POST \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"test123"}'
+
+# Check admin access (if logged in)
+curl -k https://your-domain/admin/blog
+
+# Check Docker container status
+docker ps -f "name=khzs"
+docker-compose logs khzs
+```
+
+### KHZS.BE Health Checks
+```bash
+# Test WordPress homepage
+curl -k https://your-domain/
+
+# Test WordPress admin
+curl -k https://your-domain/wp-admin/
+
+# Test PhpMyAdmin (if enabled)
+curl -k https://your-domain:8081/
+
+# Check Docker containers
+docker ps | grep khzs-be
+docker-compose logs wordpress
+docker-compose logs mysql
 ```
 
 ## Troubleshooting
