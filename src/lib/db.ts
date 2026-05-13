@@ -13,21 +13,26 @@ let db: Database.Database | null = null;
 
 function getDb(): Database.Database {
   if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma("journal_mode = WAL");
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS blogposts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        titel TEXT NOT NULL,
-        inhoud TEXT NOT NULL,
-        uitgelichte_afbeelding TEXT,
-        publicatiedatum TEXT NOT NULL,
-        slug TEXT UNIQUE NOT NULL,
-        gepubliceerd INTEGER NOT NULL DEFAULT 1,
-        aangemaakt_op TEXT NOT NULL DEFAULT (datetime('now')),
-        bijgewerkt_op TEXT NOT NULL DEFAULT (datetime('now'))
-      )
-    `);
+    try {
+      db = new Database(DB_PATH);
+      db.pragma("journal_mode = WAL");
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS blogposts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          titel TEXT NOT NULL,
+          inhoud TEXT NOT NULL,
+          uitgelichte_afbeelding TEXT,
+          publicatiedatum TEXT NOT NULL,
+          slug TEXT UNIQUE NOT NULL,
+          gepubliceerd INTEGER NOT NULL DEFAULT 1,
+          aangemaakt_op TEXT NOT NULL DEFAULT (datetime('now')),
+          bijgewerkt_op TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+    } catch (error) {
+      console.error("Database initialization failed:", error);
+      throw new Error("Database initialization failed. Check /data directory permissions and disk space.");
+    }
   }
   return db;
 }

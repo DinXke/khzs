@@ -10,7 +10,12 @@ export const metadata = {
 };
 
 export default function NieuwsPage() {
-  const posts = getPublishedPosts();
+  let posts = [];
+  try {
+    posts = getPublishedPosts();
+  } catch (error) {
+    console.error("Fout bij ophalen nieuwsberichten:", error);
+  }
 
   return (
     <main className="min-h-screen bg-white">

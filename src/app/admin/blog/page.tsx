@@ -9,7 +9,12 @@ export const metadata = {
 };
 
 export default function AdminBlogPage() {
-  const posts = getAllPosts();
+  let posts = [];
+  try {
+    posts = getAllPosts();
+  } catch (error) {
+    console.error("Fout bij ophalen blogberichten:", error);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
