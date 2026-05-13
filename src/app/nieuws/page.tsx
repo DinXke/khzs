@@ -1,4 +1,4 @@
-import { getPublishedPosts } from "@/lib/db";
+import { getPublishedPosts, type Blogpost } from "@/lib/db";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 export default function NieuwsPage() {
-  let posts = [];
+  let posts: Blogpost[] = [];
   try {
     posts = getPublishedPosts();
   } catch (error) {

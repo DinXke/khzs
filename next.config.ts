@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [],
   },
+  experimental: {
+    isrMemoryCacheSize: 0,
+  },
 };
 
 export default nextConfig;

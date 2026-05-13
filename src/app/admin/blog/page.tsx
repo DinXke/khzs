@@ -1,4 +1,4 @@
-import { getAllPosts } from "@/lib/db";
+import { getAllPosts, type Blogpost } from "@/lib/db";
 import Link from "next/link";
 import { DeleteButton } from "./DeleteButton";
 
@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default function AdminBlogPage() {
-  let posts = [];
+  let posts: Blogpost[] = [];
   try {
     posts = getAllPosts();
   } catch (error) {
