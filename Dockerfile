@@ -1,5 +1,5 @@
-FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+FROM node:22-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 FROM base AS deps
 RUN apk add --no-cache libc6-compat python3 make g++
